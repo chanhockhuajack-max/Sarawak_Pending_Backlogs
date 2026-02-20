@@ -1,0 +1,46 @@
+import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+
+# 1. Page Config
+st.set_page_config(page_title="Logistics Backlog Portal", layout="wide")
+st.title("🚚 Agent Backlog Portal")
+
+# 2. Connect to your Google Sheet
+# Replace 'YOUR_GOOGLE_SHEET_URL' with the link you copied in Step 1
+url = "YOUR_GOOGLE_SHEET_URL"
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Read the data (Updates every 10 minutes automatically)
+df = conn.read(spreadsheet=url, ttl="10m")
+
+# 3. Calculations
+total_backlog = len(df)
+# We assume 'Pending' is a number. If it's > 2, it's a breach.
+sla_breaches = len(df[df['Pending'] > 2]) 
+total_cod = df['COD'].sum()
+
+# 4. Top Dashboard Metrics
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Pending", f"{total_backlog} Items")
+col2.metric("SLA Breaches (>2 Days)", f"{sla_breaches}", delta="- Immediate Action", delta_color="inverse")
+col3.metric("Total COD Collection", f"RM {total_cod:,.2f}")
+
+# 5. Agent Filter
+st.divider()
+all_dc = ["All DCs"] + list(df['Current DC'].unique())
+selected_dc = st.selectbox("Search by Agent / Current DC", all_dc)
+
+if selected_dc != "All DCs":
+    display_df = df[df['Current DC'] == selected_dc]
+else:
+    display_df = df
+
+# 6. Show the Data Table
+st.subheader(f"Showing Data for: {selected_dc}")
+st.dataframe(
+    display_df[['AWB', 'Recipient Name', 'Route', 'Status', 'Pending', 'COD', 'Current DC']],
+    use_container_width=True
+)
+
+st.info("💡 Data updates every 10 mins. To update now, refresh the browser page.")
