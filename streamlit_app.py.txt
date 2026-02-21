@@ -7,8 +7,8 @@ st.set_page_config(page_title="Logistics Backlog Portal", layout="wide")
 st.title("🚚 Agent Backlog Portal")
 
 # 2. Connect to your Google Sheet
-# Replace 'https://docs.google.com/spreadsheets/d/1N-bmHebe7--7TfSKoyhpE7X109vcxkVGQEmNDfwxU2E/edit?usp=sharing' with the link you copied in Step 1
-url = "https://docs.google.com/spreadsheets/d/1N-bmHebe7--7TfSKoyhpE7X109vcxkVGQEmNDfwxU2E/edit?usp=sharing"
+# Replace 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSGHrehWfRjbr4oEw58UofOXIZGrCy94xLaDXfXXzUnwfkRZ6qaVTNUThwpjSVY-bX9ZO9Ma2PiOeG2/pub?output=csv' with the link you copied in Step 1
+url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGHrehWfRjbr4oEw58UofOXIZGrCy94xLaDXfXXzUnwfkRZ6qaVTNUThwpjSVY-bX9ZO9Ma2PiOeG2/pub?output=csv"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Read the data (Updates every 10 minutes automatically)
@@ -45,3 +45,4 @@ st.dataframe(
 
 
 st.info("💡 Data updates every 10 mins. To update now, refresh the browser page.")
+
