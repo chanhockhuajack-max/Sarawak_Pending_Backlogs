@@ -2,65 +2,63 @@ import streamlit as st
 import pandas as pd
 
 # 1. Page Configuration
-st.set_page_config(page_title="LBK Logistics Portal", layout="wide")
+st.set_page_config(page_title="Agent Secure Portal", layout="wide")
 
-# 2. Connect to your Link
-# This is the link you just gave me
+# 2. Connect to your Data
 DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGHrehWfRjbr4oEw58UofOXIZGrCy94xLaDXfXXzUnwfkRZ6qaVTNUThwpjSVY-bX9ZO9Ma2PiOeG2/pub?output=csv"
 
-@st.cache_data(ttl=600) # This refreshes the data every 10 minutes
+@st.cache_data(ttl=60) # Refreshes every 1 minute for better "live" feel
 def load_data():
     data = pd.read_csv(DATA_URL)
-    # Ensure 'Pending' is a number so we can calculate
     data['Pending'] = pd.to_numeric(data['Pending'], errors='coerce').fillna(0)
+    data['Current DC'] = data['Current DC'].astype(str).str.strip()
     return data
 
-try:
-    df = load_data()
+# --- LOGIN SYSTEM ---
+st.sidebar.title("🔐 Agent Login")
+user_dc = st.sidebar.text_input("Enter your DC Code (e.g. 608LBK)", "").strip()
 
-    # 3. Sidebar / Filters
-    st.sidebar.header("Filter Options")
-    all_dcs = ["All DCs"] + sorted(df['Current DC'].dropna().unique().tolist())
-    selected_dc = st.sidebar.selectbox("Select Station / DC", all_dcs)
+if user_dc == "":
+    st.title("🚚 Welcome to the Logistics Portal")
+    st.info("Please enter your DC Code in the sidebar to view your pending tasks.")
+    st.image("https://img.freepik.com/free-vector/security-concept-illustration_114360-468.jpg", width=300)
+else:
+    try:
+        df = load_data()
+        
+        # Check if the entered DC actually exists in your data
+        if user_dc in df['Current DC'].unique():
+            filtered_df = df[df['Current DC'] == user_dc]
+            
+            st.title(f"👋 Hello, Station {user_dc}")
+            st.success(f"Login Successful. You have {len(filtered_df)} pending items.")
 
-    # Filter data based on selection
-    if selected_dc != "All DCs":
-        filtered_df = df[df['Current DC'] == selected_dc]
-    else:
-        filtered_df = df
+            # 3. Metrics for that specific Agent
+            breach_count = len(filtered_df[filtered_df['Pending'] > 2])
+            total_cod = filtered_df['COD'].sum()
 
-    # 4. Main Dashboard Header
-    st.title("🚚 Real-Time Backlog Monitor")
-    st.markdown(f"**Showing data for:** {selected_dc}")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Your Total Pending", f"{len(filtered_df)} AWB")
+            col2.metric("SLA BREACHES", f"{breach_count}", delta="Action Required", delta_color="inverse")
+            col3.metric("Your COD to Collect", f"RM {total_cod:,.2f}")
 
-    # 5. Top Key Metrics (The "Big Numbers")
-    # We define a breach as anything pending more than 2 days
-    breach_count = len(filtered_df[filtered_df['Pending'] > 2])
-    total_cod = filtered_df['COD'].sum()
+            # 4. Search within their own data
+            search_awb = st.text_input("🔍 Search by AWB or Recipient Name")
+            if search_awb:
+                filtered_df = filtered_df[
+                    filtered_df['AWB'].str.contains(search_awb, case=False, na=False) | 
+                    filtered_df['Recipient Name'].str.contains(search_awb, case=False, na=False)
+                ]
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Pending", f"{len(filtered_df)} AWB")
-    col2.metric("SLA BREACH (>2 Days)", f"{breach_count}", delta="- Action Required", delta_color="inverse")
-    col3.metric("Total COD", f"RM {total_cod:,.2f}")
+            # 5. Data Table
+            st.subheader("Your Delivery Priority List")
+            st.dataframe(
+                filtered_df[['AWB', 'Recipient Name', 'Recipient Phone', 'Route', 'Status', 'Pending', 'COD']],
+                use_container_width=True
+            )
+        else:
+            st.error(f"❌ DC Code '{user_dc}' not found. Please check your code and try again.")
+            st.warning("Hint: Make sure there are no spaces in the code.")
 
-    # 6. The Data Table
-    st.subheader("Priority Delivery List")
-    
-    # Simple styling to highlight high pending days
-    def color_rows(val):
-        if val > 5: return 'color: red; font-weight: bold'
-        if val > 2: return 'color: orange'
-        return ''
-
-    st.dataframe(
-        filtered_df[['AWB', 'Recipient Name', 'Status', 'Pending', 'COD', 'Route', 'Current DC']],
-        use_container_width=True,
-        column_config={
-            "AWB": st.column_config.TextColumn("Tracking Number"),
-            "Pending": st.column_config.NumberColumn("Days Old")
-        }
-    )
-
-except Exception as e:
-    st.error(f"Error loading data: {e}")
-    st.info("Check if your Google Sheet is still 'Published to Web' as a CSV.")
+    except Exception as e:
+        st.error(f"Error: {e}")
